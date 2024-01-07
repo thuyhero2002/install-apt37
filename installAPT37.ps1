@@ -19,7 +19,7 @@ $lineToAdd = "nhom74-cdkn"
 Add-Content -Path $file -Value $lineToAdd
 
 Remove-Item "C:\AtomicRedTeam\atomics\APT37\installAPT37.ps1"
-Remove-Item "C:\AtomicRedTeam\atomics\APT37\README.ps1"
+Remove-Item "C:\AtomicRedTeam\atomics\APT37\README.MD"
 
 Write-Host "Complete!" -ForegroundColor Cyan
 
