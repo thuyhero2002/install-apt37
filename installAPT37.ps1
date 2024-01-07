@@ -2,12 +2,13 @@ $downloadDir = "C:\AtomicRedTeam\atomics"
 
 $repoUrl = "https://github.com/thuyhero2002/install-apt37/archive/refs/heads/main.zip"
 $zipFile = "$downloadDir\APT37.zip"
+$extractedDir = "$downloadDir\APT37"
 
 Write-Host "Downloading repository..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri $repoUrl -OutFile $zipFile
 
 Write-Host "Extracting repository..." -ForegroundColor Cyan
-Expand-Archive -Path $zipFile -DestinationPath $downloadDir
+Expand-Archive -Path $zipFile -DestinationPath $extractedDir
 
 Remove-Item $zipFile
 
